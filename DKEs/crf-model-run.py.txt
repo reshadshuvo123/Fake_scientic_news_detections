@@ -1,0 +1,147 @@
+
+
+import pickle
+import sys
+from pprint import pprint
+from nltk import pos_tag
+from sklearn_crfsuite import metrics
+
+#from DataExtraction import convertCONLLFormJustExtractionSemEvalPerfile
+#from FeatureExtraction import sent2labels,sent2features
+from PhraseEval import phrasesFromTestSenJustExtractionWithIndex
+import os
+import nltk 
+def convertCONLLFormJustExtractionSemEvalPerfile(loc):
+    dT=open(loc).read().split("\n")[:-2]
+    sI = [-1] + [i for i, x in enumerate(dT) if not x.strip()] + [len(dT)]
+    sT1s = [dT[sI[i]+1:sI[i+1]] for i in range(len(sI)-1)]
+    sTs = []
+    sTIs = []
+    for s in sT1s:
+        ts= [(x.split("\t")[0],x.split("\t")[1],x.split("\t")[2]) for x in s]
+        tss = [(x[0],y[1],x[1],x[2]) for (x,y) in zip(ts,pos_tag([x[0] for x in ts])) ]
+        tokens = [(x,y,z[0]) for (x,y,z,w) in tss]
+        tokenindices = [w for (x,y,z,w) in tss]
+        sTs.append(tokens)
+        sTIs.append(tokenindices)
+    return (sTs,sTIs)
+
+def convertCONLLFormJustExtractionSemEvalPerfile1(loc):
+    dT=open(loc, encoding='utf-8-sig').read().split("\n")[:-2]
+    sI = [-1] + [i for i, x in enumerate(dT) if not x.strip()] + [len(dT)]
+    sT1s = [dT[sI[i]+1:sI[i+1]] for i in range(len(sI)-1)]
+    sTs = []
+    sTIs = []
+    for s in sT1s:
+        ts= [(x.split("\t")[0],x.split("\t")[1],x.split("\t")[2]) for x in s]
+        tss = [(x[0],y[1],x[1],x[2]) for (x,y) in zip(ts,pos_tag([x[0] for x in ts])) ]
+        tokens = [(x,y,z[0]) for (x,y,z,w) in tss]
+        tokenindices = [w for (x,y,z,w) in tss]
+        sTs.append(tokens)
+        sTIs.append(tokenindices)
+    return (sTs,sTIs)
+
+#crf = pickle.load(open("linear-chain-crf.model.pickle", "rb"))
+os.chdir(r'C:\Users\MDRESHADUL\medke-master\nanjo\nanjo\medke-punctuation11\crfModel\medicalData\convertedBIO\test')  ### Please change this folder directory to your teting data
+
+fileinLoc = 'borchers-2015-03.txt'  ### testing file 
+fileoutLoc = sys.argv[1].split(".")[0]+".ann"
+#fileoutLoc = fileoutLoc[30:]
+#fileoutLoc = "medicalData/hhh/" + fileoutLoc
+#os.chdir(r'C:\Users\shuvo\medke-master\crfModel')
+#del test_sents,test_sents_indices
+(test_sents,test_sents_indices) = convertCONLLFormJustExtractionSemEvalPerfile1(fileinLoc)    ### Test sentence test sentence 
+os.chdir(r'C:\Users\MDRESHADUL\medke-master\nanjo\nanjo\medke-punctuation11')                 ### folder of saved model
+crf = pickle.load(open("linear-chain-crf.model-new.pickle", "rb"))                            ### Loading CRF model
+
+### Feature extraction functions  
+
+def convertCONLLFormJustExtractionSemEval(loc):
+    dT=open(loc, encoding='utf-8').read().split("\n")[:-2]
+    sI = [-1] + [i for i, x in enumerate(dT) if not x.strip()] + [len(dT)]
+    sT1s = [dT[sI[i]+1:sI[i+1]] for i in range(len(sI)-1)]
+    sTs = []
+    for s in sT1s:
+        ts= [(x.split("\t")[0],x.split("\t")[1]) for x in s]
+        tokens = [(x[0],y[1],x[1]) for (x,y) in zip(ts,pos_tag([x[0] for x in ts])) ]
+        tokens = [(x,y,z[0]) for (x,y,z) in tokens]
+        sTs.append(tokens)
+    return sTs
+
+from nltk import pos_tag
+
+def word2features(sent, i):
+    word = sent[i][0]
+    postag = sent[i][1]
+
+    features = {
+        'bias': 1.0,
+        'word.lower()': word.lower(), #if the whole word is lower case
+        'word[-3:]': word[-3:],
+        'word[-2:]': word[-2:],
+        'word.isupper()': word.isupper(),
+        'word.istitle()': word.istitle(),
+        'word.isdigit()': word.isdigit(),
+        'postag': postag,
+        'postag[:2]': postag[:2],
+        'wordlength': len(word),
+        'wordinitialcap': word[0].isupper(),
+        'wordmixedcap': len([x for x in word[1:] if x.isupper()])>0,
+        'wordallcap': len([x for x in word if x.isupper()])==len(word),
+        'distfromsentbegin': i
+    }
+    if i > 0:
+        word1 = sent[i-1][0]
+        postag1 = sent[i-1][1]
+        features.update({
+            '-1:word.lower()': word1.lower(),
+            '-1:word.istitle()': word1.istitle(),
+            '-1:word.isupper()': word1.isupper(),
+            '-1:postag': postag1,
+            '-1:postag[:2]': postag1[:2],
+        })
+    else:
+        features['BOS'] = True
+
+    if i < len(sent)-1:
+        word1 = sent[i+1][0]
+        postag1 = sent[i+1][1]
+        features.update({
+            '+1:word.lower()': word1.lower(),
+            '+1:word.istitle()': word1.istitle(),
+            '+1:word.isupper()': word1.isupper(),
+            '+1:postag': postag1,
+            '+1:postag[:2]': postag1[:2],
+        })
+    else:
+        features['EOS'] = True
+
+    return features
+
+
+def sent2features(sent):
+    return [word2features(sent, i) for i in range(len(sent))]
+
+def sent2labels(sent):
+    return [label for token, postag, label in sent]
+
+def sent2tokens(sent):
+    return [token for token, postag, label in sent]
+
+#### Feature Extraction
+
+import numpy as np
+#del X_test, y_test, y_pred
+X_test = [sent2features(s) for s in test_sents]
+y_test = [sent2labels(s) for s in test_sents]
+
+####
+
+y_pred = crf.predict(X_test)
+
+labels = list(crf.classes_)
+labels.remove('O')
+
+print(labels)
+sorted_labels = sorted(labels,key=lambda name: (name[1:], name[0]))
+print((metrics.flat_classification_report(y_test, y_pred, labels=sorted_labels, digits=3)))   ### Getting result performance 
