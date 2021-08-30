@@ -114,4 +114,4 @@ def ngcd(data):
   
   data= mat_list(data)
   print(mean_reciprocal_rank(data))
-  print(ngcd(data)
+  print(ngcd(data))
