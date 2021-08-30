@@ -6,6 +6,16 @@ Binary Graded data
 
 import numpy as np
 
+def mat(num):
+    if num==0:
+        return [num + 0.0]
+    lst=[]
+    zeros=num-1
+    for i in range(zeros):
+        lst.append(0)
+    lst.append(1+0.0)
+    return lst
+
 def mat_list(data):
     result=[]
     for i in data:
